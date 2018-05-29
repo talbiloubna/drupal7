@@ -1,0 +1,10 @@
+name = Capgemini Import
+description = Capgemini Import for testing user import, node import,...
+package = Capgemini
+; Information added by Drupal.org packaging script on 2017-11-28
+version = "7.x-1.2"
+core = "7.x"
+project = "capgemini_import"
+
+
+

@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Capgemini Basic Page feature.
+ */
+
+include_once 'capgemini_basic_page.features.inc';

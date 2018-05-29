@@ -1,0 +1,117 @@
+<?php
+
+function csvImporter_menu() { 
+$items = array(); 
+$items['admin/people/import'] = array(
+  'title' => 'Import', 
+  'page callback' => 'drupal_get_form', 
+  'page arguments' => array('csvImporter_form'), 
+  'access arguments' => array('administer users'), 
+  'type' => MENU_LOCAL_TASK, 
+); 
+return $items; 
+}
+
+
+
+function csvImporter_form() { 
+
+  $form = array(); 
+  $form['browser'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('Browser Upload'), 
+    '#collapsible' => TRUE, 
+    '#description' => t("Upload a CSV file."), 
+  ); 
+  $file_size = t('Maximum file size: !size MB.', array('!size' => file_upload_max_size()));
+  $form['browser']['file_upload'] = array( 
+    '#type' => 'file', 
+    '#title' => t('CSV File'), 
+    '#size' => 40, 
+    '#upload_location'    => "public://",
+     "#upload_validators"  => array("file_validate_extensions" => array("csv")),
+    '#description' => t('Select the CSV file to be imported. ') . $file_size
+  ); 
+  $form['submit'] = array( '#type' => 'submit', '#value' => t('Save'), ); 
+  // set the form encoding type 
+  $form['#attributes']['enctype'] = "multipart/form-data"; 
+  return $form; 
+}
+ 
+
+
+
+function csvImporter_form_validate($form, &$form_state) {
+  $validators = array('file_validate_extensions' => array('csv'));
+
+  // Check for a new uploaded file.
+  $file = file_save_upload('file_upload', $validators);
+  //$file = $form_state['values']['file_upload'];
+
+  if (isset($file)) {
+    // File upload was attempted.
+    if ($file) {
+      // Put the temporary file in form_values so we can save it on submit.
+      $form_state['values']['file_upload'] = $file;
+    }
+    else {
+      // File upload failed.
+      form_set_error('file_upload', t('The file could not be uploaded.'));
+    }
+  }
+}
+
+
+function csvImporter_form_submit($form, &$form_state) {
+
+    $file = $form_state['values']['file_upload'];
+    $file->status = FILE_STATUS_PERMANENT;
+    $file->filename = str_replace(' ', '_', $file->filename);
+    file_save($file);
+    
+    $validators = array('file_validate_extensions' => array('csv'));
+    $dest = "public://usersImport";
+    $file = file_save_upload('file_upload', $validators, $dest);
+    //$file will be 0 if the upload doesn't exist, or the $dest directory
+    //isn't writable
+    if ($file != 0) {
+        $dest_path = "public://usersImport";
+        //$dest_path = 'upload_directory/file';
+        $result = file_copy($file, $dest_path, FILE_EXISTS_REPLACE);
+    }
+    else {
+        form_set_error('csvImporter_form', t("Une error while saving the file."));
+    } 
+  
+    $csv_file = file_load($file->fid);
+    $file = fopen($csv_file->uri, "r");
+    $batch_number = time()."-".rand(1,99);
+    $time_captured = time();
+
+    while(! feof($file))
+    {
+      $data = fgetcsv($file, 100 ,';');
+ 
+      $newUser = array(
+      'id'=>$data[0],
+      'name' => $data[1],
+      'pass' => 'passw0rd',
+      'mail' => $data[4],
+      'status' => 1,
+      'roles' => array(DRUPAL_AUTHENTICATED_RID => 'authenticated user'),
+      'init' => 'the@mail.com',
+    );  
+      
+    user_save(null, $newUser);
+   
+    }
+
+    fclose($file);
+
+    drupal_set_message('CSV data added to the database');
+    drupal_goto('admin/people');
+}
+
+function file_clean_name($file) {
+  $file->filename = str_replace(' ', '_', $file->filename);
+}

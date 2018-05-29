@@ -1,0 +1,49 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function codeexpertz_menu() {
+  $items['admin/test/sample/%ctools_js/form'] = array(
+    'title' => 'CTools form example',
+    'access arguments' => TRUE,
+    'page callback' => 'codeexpertz_ctools_form_example',
+    'page arguments' => array(3),
+    'type' => MENU_CALLBACK,
+  );
+}
+
+/**
+ * Callback function for Popup Form.
+ */
+function codeexpertz_ctools_form_example($js) {
+  if ($js) {
+    ctools_include('ajax');
+    ctools_include('modal');
+    $form_state = array(
+      'ajax' => TRUE,
+      'title' => 'Simple Form',
+    );
+
+    $commands = ctools_modal_form_wrapper('codeexpertz_ctools_simple_form', $form_state);
+    print ajax_render($commands);
+  }
+  else {
+    return drupal_get_form('codeexpertz_ctools_simple_form');
+  }
+}
+
+/**
+ * Simple form for Demo.
+ */
+function codeexpertz_ctools_simple_form($form, &$form_state) {
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Name',
+    '#default_value' => 'Arunkumar Kuppuswamy',
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Save',
+  );
+}

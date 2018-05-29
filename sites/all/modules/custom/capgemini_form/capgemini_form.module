@@ -1,0 +1,134 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ * @return array $items
+ */
+function capgemini_form_menu() {
+  $items = array();
+
+  $items['form/exemple'] = array(//this creates a URL that will call this form at "examples/form-example"
+    'title' => 'Example Form', //page title
+    'description' => 'A form to mess around with.',
+    'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+    'page arguments' => array('capgemini_form_form'), //put the name of the form here
+    'access callback' => TRUE
+  );
+  return $items;
+}
+
+function capgemini_form_form($form, &$form_state) {
+
+  $form['nom'] = array(
+    '#type' => 'textfield', //you can find a list of available types in the form api
+    '#title' => 'What is Your Firstname?',
+    '#size' => 30,
+    '#maxlength' => 30,
+    '#required' => TRUE, //make this field required
+  );
+
+  $form['prenom'] = array(
+    '#type' => 'textfield', //you can find a list of available types in the form api
+    '#title' => 'What is Your Lastname?',
+    '#size' => 30,
+    '#maxlength' => 30,
+    '#required' => TRUE, //make this field required
+  );
+
+  $form['email'] = array(
+    '#type' => 'textfield', //you can find a list of available types in the form api
+    '#title' => 'What is Your Mail?',
+    '#size' => 30,
+    '#maxlength' => 30,
+    '#required' => TRUE, //make this field required
+  );
+
+  $form['situation'] = array(
+    '#type' => 'radios', //you can find a list of available types in the form api
+    '#options' => drupal_map_assoc(array(t('DISPO'), t('ACTIF'))),
+    '#title' => t('What is your situation in capgemini?'),
+    '#required' => TRUE, //make this field required
+  );
+
+  $form['age'] = array(
+    '#type' => 'date', //you can find a list of available types in the form api
+    '#title' => 'What is Your age?',
+    '#size' => 10,
+    '#maxlength' => 10,
+    '#required' => TRUE, //make this field required
+  );
+
+  $form['copy'] = array(
+    '#type' => 'checkbox', //you can find a list of available types in the form api
+    '#title' => 'Send me a copy',
+    '#required' => FALSE, //make this field required
+  );
+  $form['pass'] = array(
+    '#type' => 'password',
+    /* '#title' => t('Password'), */
+    '#maxlength' => 64,
+    '#size' => 15,
+  );
+  $form['pass'] = array(
+    '#type' => 'password_confirm',
+    /* '#title' => t('Password'), */
+    '#size' => 25,
+  );
+
+  $form['submit_button'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit Here!'),
+  );
+
+  return $form;
+}
+
+function capgemini_form_form_validate($form, &$form_state) {
+  $mail = $form_state['values']['email'];
+  if (!valid_email_address($mail)) {
+    form_set_error('[email]', t('You must enter a valid email address.',array(),array('context'=>'capgemini form')));
+  }
+}
+
+/* * **
+ * CREATE BLOCK
+ */
+
+/**
+ * Implements hook_block_info().
+ * @return array $blocks
+ */
+function capgemini_form_block_info() {
+  $blocks['capgemini_block'] = array(
+    'info' => t('Capgemini custom block'),
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view(). 
+ * @return array $blocks 
+ */
+function capgemini_form_block_view($delta = '') {
+  // The $delta parameter tells us which block is being requested. 
+  switch ($delta) {
+    case 'capgemini_block':
+      // Create your block content here 
+      $block['subject'] = t('My last 3 products');
+
+      $query = new EntityFieldQuery();
+      //change news by the name of your content type 
+      $entities = $query->entityCondition('entity_type', 'node')
+        ->entityCondition('bundle', 'Article')
+        ->propertyOrderBy("created", "DESC")
+        ->range(0, 3)
+        ->execute();
+      $block['content'] = '';
+      foreach ($entities['node'] as $obj) {
+        $node = node_load($obj->nid);
+        $block['content'] .= l($node->title, "node/" . $node->nid) . ' - ' . date('d-m-Y', $node->created) . '<br>';
+      }
+      break;
+  }
+  return $block;
+}

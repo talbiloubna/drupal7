@@ -1,0 +1,92 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function batch_example_menu() {
+  $items = [];
+  $items['admin/config/batch_example'] = [
+    'title' => 'Batch example',
+    'description' => 'Example of Drupal batch processing',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['batch_example_form'],
+    'access callback' => TRUE,
+  ];
+
+  return $items;
+}
+
+/**
+ * Form builder function to allow choice of which batch to run.
+ */
+function batch_example_form() {
+  $form['description'] = [
+    '#type' => 'markup',
+    '#markup' => t('Write msg'),
+  ];
+
+  $form['nbLigne'] = [
+    '#type' => 'textfield',
+    '#title' => 'Nombre de ligne',
+    '#default_value' => '',
+    '#size' => 20,
+    '#maxlength' => 4,
+    '#required' => TRUE, //make this field required
+  ];
+
+  $form['submit'] = [
+    '#type' => 'submit',
+    '#value' => 'Go',
+  ];
+
+  return $form;
+}
+
+/**
+ *
+ * @param $form
+ * @param $form_state
+ */
+function batch_example_form_submit($form, &$form_state) {
+
+  $nbLigne = $form_state['values']['nbLigne'];
+  // Reset counter for debug information.
+  $_SESSION['http_request_count'] = 0;
+
+  $batch = batch_example_write($nbLigne);
+  batch_set($batch);
+
+}
+
+
+function batch_example_write($nbLigne){
+  drupal_set_message(t('Creating a text of @num lines', array('@num' => $nbLigne)));
+
+  $operations = array();
+
+  for ($i = 0; $i < $nbLigne; $i++) {
+
+    $operations[] = array(
+      'batch_example_show_text',
+      array(
+        $nbLigne,
+        t('(Operation @operation)', array('@operation' => $i)),
+      ),
+    );
+  }
+  $batch = array(
+    'operations' => $operations,
+    //'finished' => 'batch_example_finished',
+  );
+  return $batch;
+}
+
+function batch_example_show_text($nbLigne, $operation_details, &$context){
+  drupal_set_message('test'.$nbLigne);
+
+
+  $context['message'] = t('Wrting text') . ' ' . $operation_details;
+
+}
+
+

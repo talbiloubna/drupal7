@@ -1,0 +1,133 @@
+<?php
+
+module_load_include('inc', 'capgemini_multistep_form', 'includes/capgemini_multistep_form.navigation');
+module_load_include('inc', 'capgemini_multistep_form', 'includes/capgemini_multistep_form.validate');
+module_load_include('inc', 'capgemini_multistep_form', 'includes/capgemini_multistep_form.submit');
+
+
+/**
+ * Implements hook_menu().
+ */
+function capgemini_multistep_form_menu() {
+
+  $items = array();
+  $items['multistep_form'] = array(
+    'title' => 'Customer Survey',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('capgemini_multistep_form_form'),
+    'access arguments' => array('access content'),
+    'file' => 'includes/capgemini_multistep_form.form.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  
+  $items['complete-page'] = array(
+    'title' => 'Survey Complete',
+    'page callback' => 'capgemini_multistep_form_complete',
+    'page arguments' => array(),
+    'access arguments' => array('access content'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+    $items['admin/content/capgemini/opinion'] = array(
+    'title' => 'Capgemini opinions',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('capgemini_multistep_form_opinion_list'),
+    'access arguments' => array('administer users'),
+    'file' => 'includes/capgemini_multistep_form.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+
+  $items['admin/content/capgemini/opinion/edit/%'] = array(
+    "title" => "Capgemini Edit opinion",
+    "description" => "Update Entry.",
+    "page callback" => "capgemini_multistep_form_edit_block_view",
+    "page argument" => array(5),
+    "access arguments" => array("administer users"),
+    'file' => 'includes/capgemini_multistep_form.admin.inc',
+    "weight" => -14,
+  );
+
+
+  $items['admin/content/capgemini/opinion/delete/%'] = array(
+    "title" => "My Custom Table",
+    "description" => "View My Custom Table.",
+    "page callback" => "capgemini_multistep_form_delete",
+    "page argument" => array(5),
+    'file' => 'includes/capgemini_multistep_form.admin.inc',
+    "access arguments" => array("administer users"),
+    "weight" => -14,
+  );
+  
+    $items['admin/content/capgemini/opinion/popup/%ctools_js'] = array(
+    'page callback' => 'capgemini_multistep_form_callback',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+ 
+  
+  return $items;
+}
+
+
+/*
+ * Implements hook_mail().
+ */
+function capgemini_multistep_form_mail($key, &$message, $params) {
+    
+  if (isset($params['subject'])) {
+    $message['subject'] = $params['subject'];
+  } 
+  if (isset($params['body'])) {
+    $message['body'][] = $params['body']; 
+  }
+  if (isset($params['headers']) && is_array($params['headers'])) {   
+    $message['headers'] += $params['headers'];
+  }
+  
+}
+
+
+/**
+ * Ajax menu callback.
+ */
+function capgemini_multistep_form_callback($ajax) {
+  if ($ajax) {
+    ctools_include('ajax');
+    ctools_include('modal');
+
+    $form_state = array(
+      'ajax' => TRUE,
+      'title' => t('MyModule Modal Form'),
+    );
+
+    // Use ctools to generate ajax instructions for the browser to create
+    // a form in a modal popup.
+    $output = ctools_modal_form_wrapper('capgemini_multistep_form_popup_form', $form_state);
+
+   
+  }
+  return '<div id="magical-modal-link">' . l('opinions', 'admin/content/capgemini/opinion/popup/nojs', array('attributes' => array('class' => 'ctools-use-modal'))) . '</div>';
+}
+
+
+
+/**
+ * Drupal form to be put in a modal.
+ */
+function capgemini_multistep_form_popup_form($form, $form_state) {
+  $form = array();
+
+  $form['new_link_text'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Link text'),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+  return $form;
+}

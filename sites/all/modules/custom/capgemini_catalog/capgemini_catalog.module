@@ -1,0 +1,375 @@
+<?php
+
+/**
+ * @file
+ * Code for the capgemini_catalog feature.
+ */
+include_once 'capgemini_catalog.features.inc';
+
+/**
+ * Implements hook_menu().
+ * @return array $items
+ */
+function capgemini_catalog_menu() {
+  $items = array();
+
+  $items['admin/capgemini/products/import'] = array(//this creates a URL that will call this form at "examples/form-example"
+    'title' => 'Import Product File', //page title
+    'description' => 'A form to import products',
+    'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+    'page arguments' => array('capgemini_catalog_form'), //put the name of the form here
+    "access arguments" => array("administer content types"),
+  );
+
+  $items['admin/capgemini/products/import/logs'] = array(//this creates a URL that will call this form at "examples/form-example"
+    'title' => 'Products Imported Log', //page title
+    'description' => 'Products Imported Table.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('capgemini_import_products_logs'),
+    "access arguments" => array("administer content types"),
+  );
+
+  $items['admin/capgemini/products/import/logs/delete/%'] = array(
+    "title" => "Log Products Table",
+    "description" => "View My Products Log .",
+    "page callback" => "capgemini_catalog_form_delete",
+    "page argument" => array(6),
+    "access arguments" => array("administer content types"),
+  );
+
+
+
+  $items['admin/capgemini/products/%ctools_js/%'] = array(
+    'title' => 'PopUp Products',
+    'access arguments' => TRUE,
+    'page callback' => 'capgemini_catalog_popup_product',
+    'page arguments' => array(3, 4),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/*
+ * implements hook_form
+ * create form for upload and import csv file 
+ */
+
+function capgemini_catalog_form($form, &$form_state) {
+
+  $form = array();
+  $form['#attributes']['enctype'] = 'multipart/form-data';
+  $form['files']['file_upload'] = array(
+    '#type' => 'managed_file',
+    '#title' => t('Product import file'),
+    '#description' => t('Upload a file, allowed extensions: csv'),
+    '#upload_location' => 'public://import/products',
+    '#upload_validators' => array('file_validate_extensions' => array('csv'), 'file_products_validate_name' => array()),
+  );
+
+  $form['upload_button'] = array(
+    '#type' => 'submit',
+    '#value' => t('Import products from existing file'),
+  );
+  return $form;
+}
+
+/*
+ * submit 
+ */
+
+function capgemini_catalog_form_submit($form, &$form_state) {
+  if ($form_state['triggering_element']['#value'] == 'Import products from existing file') {
+    capgemini_catalog_process_import();
+  }
+}
+
+/*
+ * Change csv file's name
+ * save uri file into table manged_file
+ */
+
+function file_products_validate_name(stdClass $file) {
+  $errors = array();
+  //generate file name
+  $new_filename = 'product_import.csv';
+  $file->filename = $new_filename;
+  // Change status to permanent.
+  $file->status = FILE_STATUS_PERMANENT;
+  //changing file location
+  $destination_dir = "public://import/";
+  // validation uri : file exist deja:
+  $result = db_query("SELECT * FROM {file_managed} WHERE uri = :furi", array(":furi" => $destination_dir . 'product_import.csv'));
+  $record = $result->fetchAll();
+  if ($record) {
+    $errors[] = t('un fichier existe deja dans le dossier /import/.');
+  }
+  $file->destination = file_destination($destination_dir . $file->filename, FILE_EXISTS_REPLACE);
+
+  if ($file->destination === FALSE) {
+    $errors[] = t('The file %source could not be uploaded because a file by that name already exists in the destination %directory.', array('%source' => $file->source, '%directory' => $destination_dir));
+  }
+  return $errors;
+}
+
+/*
+ * Read csv file
+ * call function capgemini_catalog_create_product to import data
+ */
+
+function capgemini_catalog_process_import() {
+
+  $path = "public://import/product_import.csv";
+  if (file_exists($path)) {
+    $f = fopen($path, 'r');
+    $product_created = $product_not_created = $product_updated = $product_not_updated = 0;
+    if ($f) {
+      while (!feof($f)) {
+        $data = fgetcsv($f, 1000, ';');
+        if (!empty($data)) {
+
+          $products = capgemini_catalog_create_product($data);
+
+          if ($products) {
+            $product_created++;
+          }
+          else {
+            $product_not_created++;
+          }
+        }
+      }
+      fclose($f);
+
+      drupal_set_message(t('@product_created products was created.', array('@product_created' => $product_created), array('context' => 'import product')), 'status');
+      drupal_set_message(t('@product_not_created products was not created.', array('@product_not_created' => $product_not_created), array('context' => 'import product')), 'error');
+      capgemini_catalog_archive_and_log($path, $product_created, $product_not_created, $product_updated, $product_not_updated);
+    }
+    else {
+      drupal_set_message(t('can\'t open the file'), 'error');
+    }
+  }
+  else {
+    drupal_set_message(t('There is no file for import in directory /import'), 'warning');
+  }
+}
+
+/**
+ * Create node products.
+ * @param array $data.
+ */
+function capgemini_catalog_create_product($data) {
+  $node = new stdClass();
+  $node->type = 'produits';
+  node_object_prepare($node);
+  $node->title = text_summary($data[0]);
+
+
+  $node_wrapper = entity_metadata_wrapper('node', $node);
+  $node_wrapper->promote = 0;
+  $node_wrapper->language->set('und');
+
+  $node->body[$node->language][0]['value'] = $data[1];
+  $node->body[$node->language][0]['summary'] = text_summary($data[1]);
+  $node->body[$node->language][0]['format'] = 'filtered_html';
+
+// pour les champs ajoutés : description,...
+  $node_wrapper->field_prix->set($data[2]);
+
+  $file_path = drupal_realpath('sites/all/modules/custom/capgemini_catalog/images/' . basename($data[3]));
+  $file = (object) array(
+      'uid' => 1,
+      'uri' => $file_path,
+      'filename' => basename($file_path),
+      'filemime' => file_get_mimetype($file_path),
+  );
+
+  $file = file_copy($file, 'public://img/', FILE_EXISTS_RENAME);
+
+
+  if ($file) {
+    $node_wrapper->field_image_principale = (array) $file;
+  }
+
+
+  //import images 
+
+  $images = explode(',', $data[4]);
+
+  foreach ($images as $image) {
+    $file_path = drupal_realpath('sites/all/modules/custom/capgemini_catalog/images/' . basename($image));
+    $file = (object) array(
+        'uid' => 1,
+        'uri' => $file_path,
+        'filename' => basename($file_path),
+        'filemime' => file_get_mimetype($file_path),
+    );
+
+    $file = file_copy($file, 'public://img/');
+
+    if ($file) {
+      $node_wrapper->field_images[] = (array) $file;
+    }
+  }
+
+  $import_results = $node_wrapper->save();
+
+  if ($import_results) {
+    return TRUE;
+  }
+  else {
+    return False;
+  }
+}
+
+/*
+ * Archive products file and insert data to table log
+ */
+
+function capgemini_catalog_archive_and_log($path, $product_created, $product_not_created, $product_updated, $product_not_updated) {
+  $source = "public://import/product_import.csv";
+  $destination = "public://import/products";
+  $files = file_load_multiple(array(), array('uri' => $source));
+  $file_moved = file_move(reset($files), $destination, FILE_EXISTS_RENAME);
+  db_insert('capgemini_import_products_log')
+    ->fields(array(
+      'context' => 'produits',
+      'products_imported' => $product_created,
+      'products_not_imported' => $product_not_created,
+      'products_updated' => $product_updated,
+      'products_not_updated' => $product_not_updated,
+      'date_import' => REQUEST_TIME,
+      'uri' => $file_moved->uri,
+    ))
+    ->execute();
+}
+
+/**
+ * products imported log
+ * showing imported products log.
+ */
+function capgemini_import_products_logs() {
+  $headers = array(' ID', 'context', 'Products Imported', 'Products Not Imported', 'Imported At', 'File uri', 'Action');
+  $rows = array();
+
+  $select = db_select('capgemini_import_products_log', 'log')
+    ->extend('PagerDefault')
+    ->extend('TableSort');
+
+  $select->fields('log', array('id', 'context', 'products_imported', 'products_not_imported', 'date_import', 'uri'))
+    ->limit(5)
+    ->orderBy('date_import', 'DESC');  # TODO this call seems to be losing to orderByHeader on page load
+  # execute the query
+  $results = $select->execute();
+
+  foreach ($results as $product) {
+    $rows[$product->id] = array(
+      $product->id,
+      $product->context,
+      $product->products_imported,
+      $product->products_not_imported,
+      format_date($product->date_import),
+      l('imported file', file_create_url($product->uri)),
+      capgemini_catalog_delecte_log($product->id),
+    );
+  }
+
+  $form['products_log'] = array(
+    '#type' => 'tableselect',
+    '#header' => $headers,
+    '#options' => $rows,
+    '#empty' => t('No log products available.'),
+    '#multiple' => TRUE,
+    '#weight' => 1,
+  );
+
+  $form['pager'] = array(
+    '#markup' => theme('pager'),
+    '#weight' => 10,
+  );
+
+  return $form;
+}
+
+/*
+ * return link to delete log product
+ */
+
+function capgemini_catalog_delecte_log($log_products_id) {
+
+  $delete = l(t('delete'), 'admin/capgemini/products/import/logs/delete/' . $log_products_id);
+  return $delete;
+}
+
+/*
+ * delete entry log imported products
+ */
+
+function capgemini_catalog_form_delete() {
+  $id = arg(6);
+  db_delete("capgemini_import_products_log")
+    ->condition("id", $id)
+    ->execute();
+  drupal_set_message(t("Record has been deleted!"));
+  drupal_goto('admin/capgemini/products/import/logs');
+}
+
+/**
+ * Implements hook_block_info().
+ * @return array $blocks
+ */
+function capgemini_catalog_block_info() {
+  $blocks['capgemini_catalog_block'] = array(
+    'info' => t('Capgemini Catalog Products'),
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view(). 
+ * @return array $blocks 
+ */
+function capgemini_catalog_block_view($delta = '') {
+  ctools_include('modal');
+  ctools_modal_add_js();
+
+  switch ($delta) {
+    case 'capgemini_catalog_block':
+      // Create your block content here 
+      $block['subject'] = t('My last 4 products');
+
+      $query = new EntityFieldQuery();
+      //change news by the name of your content type 
+      $entities = $query->entityCondition('entity_type', 'node')
+        ->entityCondition('bundle', 'produits')
+        ->propertyOrderBy("created", "DESC")
+        ->range(0, 4)
+        ->execute();
+      $block['content'] = '';
+      foreach ($entities['node'] as $obj) {
+        $node = node_load($obj->nid);
+        $block['content'] .= l($node->title, 'admin/capgemini/products/nojs/' . $node->nid, array('attributes' => array('class' => 'ctools-use-modal'))) . ' <br> <br>';
+      }
+      break;
+  }
+  return $block;
+}
+
+/**
+ * implements function to show setected products into pop up 
+ */
+function capgemini_catalog_popup_product($js = NULL, $nid = NULL) {
+  if ($nid == NULL) {
+    // You can customize the string below, or use a drupal_goto() to
+    // send the user to a custom error page.
+    return 'No node id was sent. Error.';
+  }
+  if ($js) {
+    // Required includes for ctools to work:
+    ctools_include('modal');
+    ctools_include('ajax');
+  }
+  // Load the node obkect
+  $node = node_load($nid);
+  $contents = render(node_view($node, 'teaser', NULL));
+  return ctools_modal_render($node->title, $contents);
+}

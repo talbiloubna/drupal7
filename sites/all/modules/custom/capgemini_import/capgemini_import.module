@@ -1,0 +1,261 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ * @return array $items
+ */
+function capgemini_import_menu() {
+  $items = array();
+
+  $items['admin/config/people/import_file'] = array(//this creates a URL that will call this form at "examples/form-example"
+    'title' => 'Import user file', //page title
+    'description' => 'A form to mess around with.',
+    'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+    'page arguments' => array('capgemini_import_file_form'), //put the name of the form here
+    "access arguments" => array("administer users"),
+  );
+
+
+  return $items;
+}
+
+function capgemini_import_file_form($form, &$form_state) {
+
+  $form = array();
+  $form['#attributes']['enctype'] = 'multipart/form-data';
+  $form['files']['file_upload'] = array(
+    '#type' => 'managed_file',
+    '#title' => t('User import file'),
+    '#description' => t('Upload a file, allowed extensions: csv'),
+    '#upload_location' => 'public://import',
+    '#upload_validators' => array('file_validate_extensions' => array('csv'), 'file_validate_name' => array()),
+  );
+
+  $form['upload_button'] = array(
+    '#type' => 'submit',
+    '#value' => t('import users from existing file'),
+  );
+  return $form;
+}
+
+function file_validate_name(stdClass $file) {
+  $errors = array();
+  //generate file name
+  $new_filename = 'user_import.csv';
+  $file->filename = $new_filename;
+  // Change status to permanent.
+  $file->status = FILE_STATUS_PERMANENT;
+  //changing file location
+  $destination_dir = "public://import/";
+  // validation uri : file exist deja:
+  $result = db_query("SELECT * FROM {file_managed} WHERE uri = :furi", array(":furi" => $destination_dir . 'user_import.csv'));
+  $record = $result->fetchAll();
+  if ($record) {
+    $errors[] = t('un fichier existe deja dans le dossier /import.');
+  }
+  $file->destination = file_destination($destination_dir . $file->filename, FILE_EXISTS_REPLACE);
+  // If file_destination() returns FALSE then $replace == FILE_EXISTS_ERROR and
+  // there's an existing file so we need to bail.
+  if ($file->destination === FALSE) {
+    $errors[] = t('The file %source could not be uploaded because a file by that name already exists in the destination %directory.', array('%source' => $file->source, '%directory' => $destination_dir));
+  }
+  return $errors;
+}
+
+function capgemini_import_file_form_submit($form, &$form_state) {
+  if ($form_state['triggering_element']['#value'] == 'import users from existing file') {
+    capgemini_import_process_import();
+  }
+}
+
+function capgemini_import_file_form_upload($form, &$form_state) {
+  $validators = array('file_validate_extensions' => array('csv'));
+  $dest = "public://import";
+  $file = file_save_upload('file_upload', $validators, $dest, FILE_EXISTS_REPLACE);
+  if ($file) {
+    drupal_set_message(t('File uploaded.'), 'status');
+  }
+  else {
+    form_set_error('capgemini_import_file_form', t("Une error while saving the file."));
+  }
+}
+
+function capgemini_import_process_import() {
+  $aliases = array();
+  $path = "public://import/user_import.csv";
+  if (file_exists($path)) {
+    $f = fopen($path, 'r');
+    $user_created = $user_updated = $user_not_created = $user_not_updated = 0;
+    if ($f) {
+      while (!feof($f)) {
+        $data = fgetcsv($f, 1000, ';');
+        if (!empty($data)) {
+          //validate email : 
+          if (!valid_email_address($data[4])) {
+            drupal_set_message(t('the mail %mail is not valid.', array('%mail' => $data[4])), 'error');
+          }
+          // validate if user with mail exist => then update this user
+          $user_mail_exist = capgemini_import_validate_mail($data[4], $data);
+          //user wit mail exist
+          if ($user_mail_exist['exist']) {
+            // user with mail updated
+            if ($user_mail_exist['updated']) {
+              $user_updated++;
+              //drupal_set_message($user_mail_exist['msg'], 'status');
+            }
+            //error while updating user with mail
+            else {
+              $user_not_updated++;
+              //drupal_set_message($user_mail_exist['msg'], 'warning');
+            }
+          }
+          //user with mail not exist => then create new user
+          else {
+            $user = capgemini_import_create_user($data);
+            if (!$user) {
+              $user_created++;
+              //drupal_set_message(t('the user %mail was created.', array('%mail' => $data[4])), 'status');
+            }
+            else {
+              $user_not_created++;
+              //drupal_set_message(t('error while creating the new user %mail.', array('%mail' => $data[4])), 'error');
+            }
+          }
+        }
+      }
+      fclose($f);
+
+      drupal_set_message(t('@user_created user was created.', array('@user_created' => $user_created)), 'status');
+      drupal_set_message(t('@user_updated user was updated.', array('@user_updated' => $user_updated)), 'status');
+      drupal_set_message(t('@user_not_created user was not created.', array('@user_not_created' => $user_not_created)), 'warning');
+      drupal_set_message(t('@user_not_created user was not updated.', array('@user_not_updated' => $user_not_updated)), 'warning');
+
+      capgemini_import_archive_and_log($path, $user_created, $user_updated, $user_not_created, $user_not_updated);
+    }
+    else {
+      drupal_set_message(t('can\'t open the file'), 'error');
+    }
+  }
+  else {
+    drupal_set_message(t('There is no file for import in directory /import'), 'warning');
+  }
+}
+
+/**
+ * Validate if a user with this mail already exist
+ * if exist => update the existing user
+ * else return false
+ * @param string $mail.
+ * @param array $data
+ *
+ * @return array
+ */
+function capgemini_import_validate_mail($mail, $data) {
+  $result = array();
+  $user = user_load_by_mail($mail);
+  if ($user) {
+    $user = user_load($user->uid);
+    $user->field_adresse['und'][0]['locality'] = $data[2];
+    $user->field_adresse['und'][0]['country'] = 'FR';
+    $user->field_lastname['und'][0]['value'] = $data[0];
+    $user->field_firstname['und'][0]['value'] = $data[1];
+    user_save($user);
+    if (user_save($user)) {
+      $result['exist'] = TRUE;
+      $result['updated'] = TRUE;
+      $result['msg'] = t('the user with %mail was updated.', array('%mail' => $mail));
+    }
+    else {
+      $result['exist'] = TRUE;
+      $result['updated'] = FALSE;
+      $result['msg'] = t('an error while updatin the user with mail %mail.', array('%mail' => $mail));
+    }
+  }
+  else {
+    $result['exist'] = FALSE;
+    $result['updated'] = FALSE;
+  }
+  return $result;
+}
+
+/**
+ * Create user entity.
+ * @param array $data.
+ */
+function capgemini_import_create_user($data) {
+  $newUser = entity_create('user', array());
+  $newUser->name = $data[4];
+  $newUser->mail = $data[4];
+  $newUser->field_lastname['und'][0]['value'] = $data[0];
+  $newUser->field_firstname['und'][0]['value'] = $data[1];
+  $newUser->field_adresse['und'][0]['locality'] = $data[2];
+  $newUser->field_adresse['und'][0]['country'] = 'FR';
+  $newUser->status = 1;
+  return entity_save('user', $newUser);
+}
+
+function capgemini_import_archive_and_log($path, $user_created, $user_updated, $user_not_created, $user_not_updated) {
+  $source = "public://import/user_import.csv";
+  $destination = "public://import/archive";
+  $files = file_load_multiple(array(), array('uri' => $source));
+  $file_moved = file_move(reset($files), $destination, FILE_EXISTS_RENAME);
+  db_insert('capgemini_import_log')
+    ->fields(array(
+      'context' => 'user',
+      'users_imported' => $user_created,
+      'users_not_imported' => $user_not_created,
+      'users_updated' => $user_updated,
+      'user_not_updated' => $user_not_updated,
+      'date_import' => REQUEST_TIME,
+      'uri' => $file_moved->uri,
+    ))
+    ->execute();
+}
+
+/**
+ * users imported log
+ * showing imported users log.
+ */
+function capgemini_import_users_log() {
+  $headers = array(' ID', 'context', 'Users Imported', 'Users Not Imported', 'Users Updated', 'Users Updated', 'Imported At', 'File uri');
+  $rows = array();
+
+  $select = db_select('capgemini_import_log', 'cil')
+    ->extend('PagerDefault')
+    ->extend('TableSort');
+
+  $select->fields('cil', array('id', 'context', 'users_imported', 'users_not_imported', 'users_updated', 'date_import', 'uri', 'user_not_updated'))
+    ->limit(5)
+    ->orderBy('date_import', 'DESC');  # TODO this call seems to be losing to orderByHeader on page load
+  # execute the query
+  $results = $select->execute();
+
+  foreach ($results as $user) {
+    $rows[$user->id] = array(
+      $user->id,
+      $user->context,
+      $user->users_imported,
+      $user->users_not_imported,
+      $user->users_updated,
+      $user->user_not_updated,
+      format_date($user->date_import),
+      l('imported file', file_create_url($user->uri)),
+    );
+  }
+  
+  $form['users_log'] = array(
+    '#type' => 'tableselect',
+    '#header' => $headers,
+    '#options' => $rows,
+    '#empty' => t('No opinions available.'),
+    '#multiple' => TRUE,
+    '#weight' => 1,
+  );
+
+  $form['pager'] = array(
+    '#markup' => theme('pager'),
+    '#weight' => 10,
+  );
+
+  return $form;
+}

@@ -1,0 +1,387 @@
+<?php
+/**
+ * Implements hook_menu().
+ * @return array $items
+ */
+//creation de menu
+function capgemini_formulaire_menu() {
+  //hook_menu on remplace hook par le nom de module
+    $items = array();
+
+    $items['formulaire/exemple'] = array(//this creates a URL that will call this form at "examples/form-example"
+      'title' => 'Example Form', //page title
+      'description' => 'A form to mess around with.',
+      'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+      'page arguments' => array('capgemini_formulaire_form'), //put the name of the form here
+      'access callback' => TRUE
+    );
+    $items['formulaire/exemple-test'] = array(//this creates a URL that will call this form at "examples/form-example"
+      'title' => 'Example 2 Form', //page title
+      'description' => 'A form to mess around with.',
+      'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+      'page arguments' => array('capgemini_formulaire_test_form'), //put the name of the form here
+      'access callback' => TRUE
+    );
+    $items['formulaire/career'] = array(//this creates a URL that will call this form at "examples/form-example"
+      'title' => 'Example career Form', //page title
+      'description' => 'A form to mess around with.',
+      'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+      'page arguments' => array('capgemini_formulaire_career_form'), //put the name of the form here
+      'access callback' => TRUE
+    );
+    return $items;
+} 
+
+//creation de formulaire
+function capgemini_formulaire_form($form, &$form_state) {
+  //hook_form ou remplae hook par le nom du module capgemini_form_form
+
+    $form['nom'] = array(
+      //nom:: nom du champs
+      '#type' => 'textfield', //you can find a list of available types in the form api
+      '#title' => 'What is Your Firstname?', //Label
+      '#size' => 30,
+      '#maxlength' => 30,
+      '#required' => TRUE, //make this field required 
+    );
+
+    $form['prenom'] = array(
+      '#type' => 'textfield', //you can find a list of available types in the form api
+      '#title' => 'What is Your Lastname?',
+      '#size' => 30,
+      '#maxlength' => 30,
+      '#required' => TRUE, //make this field required 
+    );
+
+    $form['email'] = array(
+      '#type' => 'textfield', //you can find a list of available types in the form api
+      '#title' => 'What is Your Mail?',
+      '#size' => 30,
+      '#maxlength' => 30,
+      '#required' => TRUE, //make this field required 
+    );
+
+    $form['situation'] = array(
+      '#type' => 'radios', //you can find a list of available types in the form api
+      '#options' => drupal_map_assoc(array(t('DISPO'), t('ACTIF'))),
+      '#title' => t('What is your situation in capgemini?'), //on utilise t pour faire la traduction
+      '#required' => TRUE, //make this field required 
+    );
+
+    $form['age'] = array(
+      '#type' => 'date', //you can find a list of available types in the form api
+      '#title' => 'What is Your age?', //Label
+      '#size' => 10,
+      '#maxlength' => 10,
+      '#required' => TRUE, //make this field required 
+    );
+
+    $form['copy'] = array(
+      '#type' => 'checkbox', //you can find a list of available types in the form api
+      '#title' => 'Send me a copy',
+      '#required' => FALSE, //make this field required 
+    );
+
+    $form['submit_button'] = array(
+      '#type' => 'submit',
+      '#value' => t('Submit Here!'),
+    );
+
+    return $form;
+} 
+
+//validation des champs de formulaire
+function capgemini_formulaire_form_validate($form, &$form_state) {
+    $mail = $form_state['values']['email'];
+    if (!valid_email_address($mail)) {
+        form_set_error('[email]', t('The email address appears to be invalid.'));
+    }
+}
+
+
+//creation de formulaire
+function capgemini_formulaire_test_form($form, &$form_state) {
+  //hook_form ou remplae hook par le nom du module capgemini_form_form
+     $form['contact'] = array(
+      '#type' => 'fieldset', 
+      '#title' => t('Formulaire Test'), 
+      '#weight' => 5, 
+      '#collapsible' => TRUE, 
+      '#collapsed' => FALSE,
+
+    );
+
+    $form['contact']['upload'] = array(
+      '#name' => 'files[' . implode('_', $form['#parents']) . ']',
+      '#type' => 'file',
+      '#title' => t('Choose a file'),
+      '#title_display' => 'invisible',
+      '#size' => 22,
+      '#theme_wrappers' => array(),
+      '#weight' => -10,
+    );
+
+    $form['contact']['file_upload'] = array(
+      '#type'   => "managed_file",
+      '#title'  => t("Upload Image"),
+      '#descripion' => t("Only Image Files are allowed."),
+      '#upload_location'    => "public://img/",
+      "#upload_validators"  => array("file_validate_extensions" => array("png gif jpg")),
+    );
+
+    $form['contact']['confirmpassword'] = array(
+      '#type' => 'password_confirm', 
+      '#size' => 25,
+
+    );
+     $form['contact']['selected'] = array(
+       '#type' => 'select',
+       '#title' => t('Selected'),
+       '#options' => array(
+          0 => t('Yes'),
+         1 => t('No'),
+       ),
+       '#default_value' => $category['selected'],     
+      );
+
+
+     $form['contact']['keywords'] = array(
+      '#title' => t('Keywords'),
+      '#type' => 'textarea',
+      '#description' => t
+      ('The comment will be unpublished if it contains any of the phrases above. Use a case-sensitive, comma-separated list of phrases. Example: funny, bungee jumping, "Company, Inc."'),
+      '#default_value' => isset(  $context['keywords']) ? drupal_implode_tags($context['keywords']) : '',
+    );
+
+     $form['contact']['date_of_birth'] = array(
+      '#title' => t('Date of birth'),
+      '#type' => 'date',
+      '#required' => TRUE,
+      '#mindate' => strtotime((date('Y') - 100) . date('-m-d')),
+      '#maxdate' => time(),
+      '#mindate_error' => t('Please enter a date within the last 100 years.'),
+      '#mindate' => strtotime((date('Y') - 100) . date('-m-d')),
+      '#maxdate_error' => t('Please enter a date up to and including today.'),
+    );
+
+    $form['contact']['submit_button'] = array(
+      '#type' => 'submit',
+      '#value' => t('Submit Here!'),
+    );
+
+    return $form;
+} 
+
+function capgemini_formulaire_career_form()
+{
+    $form['career_to_apply'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Apply Online'),
+      '#description' => t('Mandatory Fields are Marked with *'),
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE
+    );
+    $form['career_to_apply']['jobapplyfor'] = array(
+      '#type' => 'select',
+      '#title' => t('Job Apply For *'),
+      '#options' => array("BDE", "Support Executive", "Country Manager", "Content Writer", "SEO Consultant", "Testing Executive", "PHP Programmer", "ASP.NET Programmer", "Java Programmer", "Game Developer", "3D Animator"),
+      '#default_value' => 'BDE',
+    );
+
+    $form['career_to_apply']['name'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Name *'),
+      '#size' => 21,
+      '#maxlength' => 20,
+      '#default_value' => '',
+    );
+
+    for($i=1;$i<=31;$i++)
+    {
+      $date[$i] = $i;
+    }
+
+    $form['career_to_apply']['dateofbirthdate'] = array(
+      '#type' => 'select',
+      '#title' => 'Date of Birth',
+      '#default_value' => '',
+      '#options' => $date,
+    );
+
+    $month = array("01"=>"Jan","02"=>"Feb","03"=>"Mar","04"=>"Apr","05"=>"May","06"=>"June","07"=>"July","08"=>"Aug","09"=>"Sep","10"=>"Oct","11"=>"Nov","12"=>"Dec");
+    $form['career_to_apply']['dateofbirthmonth'] = array(
+      '#type' => 'select',
+      '#options' =>$month,
+    );
+    for($i=date("Y");$i>=date("Y")-80;$i--)
+    {
+      $year[$i] = $i;
+    }
+    $form['career_to_apply']['dateofbirthyear'] = array(
+      '#type' => 'select',
+      '#options' => $year,
+    );
+    $sexoptions = array("Male"=>"Male", "Female"=>"Female");
+    $form['career_to_apply']['sex'] = array(
+      '#type' => 'radios',
+      '#title' => t('Gender *'),
+      '#options' =>$sexoptions,
+    );
+    $form['career_to_apply']['emailid'] = array(
+      '#type' => 'textfield',
+      '#title' => 'Email ID *',
+      '#default_value' => '',
+      '#size'=>20,
+      '#maxlength'=>80,
+    );
+  //'#resizable' => FALSE, -> for control the textarea resize option
+    $form['career_to_apply']['address'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Address *'),
+      '#cols' => 62,
+      '#row' => 5,
+      '#resizable' => FALSE,
+    );
+    $form['career_to_apply']['currentsym'] = array(
+      '#type' => 'select',
+      '#title' => t('Current CTC *'),
+      '#options' => array('INR'=>'INR','USD'=>t('USD'),'EUR'=>"EUR"),
+    );
+    $form['career_to_apply']['currentctcamt'] = array(
+      '#type' => 'textfield',
+      '#default_value' => '',
+      '#size'=>20,
+      '#maxlength'=>20,
+    );
+      $form['career_to_apply']['currentsymbol'] = array(
+      '#type' => 'select',
+      '#title' => t('Expected CTC *'),
+      '#options' => array('INR'=>'INR','USD'=>t('USD'),'EUR'=>"EUR"),
+    );
+    $form['career_to_apply']['expectedctcamt'] = array(
+      '#type' => 'textfield',
+      '#default_value' => '',
+      '#size'=>20,
+      '#maxlength'=>20,
+    );
+    $form['career_to_apply']['uploadresume'] = array(
+      '#type' => 'file',
+      '#title' => 'Upload Your Resume *',
+      '#size' =>20,
+    );
+    $form['career_to_apply']['additionaldetails'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Additional Details'),
+      '#cols' => 30,
+      '#row' => 5,
+      '#resizable' => TRUE,
+    );
+    $form['career_to_apply']['ackmail'] = array(
+      '#type'=>'checkbox',
+      '#title'=>t('Send Confirmation acknowledgement Mail'),
+    );
+    $form['#attributes'] = array('enctype' => "multipart/form-data");
+    $form['submit'] = array('#type' => 'submit', '#value' => t('Submit'));
+    return system_settings_form($form);
+}
+
+function capgemini_formulaire_career_form_validate($form, &$form_state)
+{
+    if (trim($form_state['values']['jobapplyfor']) == "")
+    {
+      $array = form_set_error('jobapplyforerror', t('Please select the Job Apply For option'));
+    }
+    if(trim($form_state['values']['name']) == "")
+    {
+      $array = form_set_error('nameerror',t('Please enter your Name'));
+    }
+
+    // if(trim($form_state['values']['dateofbirthdate']) != "" && trim($form_state['values']['dateofbirthmonth']) != "" && trim($form_state['values']['dateofbirthyear']) != "")
+    // {
+    //   $dob = trim($form_state['values']['dateofbirthyear'])."-".trim($form_state['values']['dateofbirthmonth'])."-".trim($form_state['values']['dateofbirthdate']);
+    //   $sql = "SELECT datediff('".date("Y-m-d")."','".$dob."') as temp";
+    //   $res = db_query($sql);
+    //   $row = db_fetch_array($res);
+    //   if(intval($row['temp']) <= 0)
+    //   {
+    //     $array = form_set_error('dateofbirtherror',t('Invalid Date of Birthday Date'));
+    //   }
+    // }
+    if(trim($form_state['values']['sex']) == "")
+    {
+      $array = form_set_error('sexerror',t('Please select your Gender'));
+    }
+
+    if(trim($form_state['values']['emailid']) == "")
+    {
+      $array = form_set_error('emailiderror',t('Please enter your Email ID'));
+    }
+    if(trim($form_state['values']['address']) == "")
+    {
+      $array = form_set_error('addresserror',t('Please enter your Address'));
+    }
+    if(trim($form_state['values']['currentctcamt']) == "")
+    {
+      $array = form_set_error('currentctcamterror',t('Please enter your Current CTC value'));
+    }
+    if(!is_numeric(trim($form_state['values']['currentctcamt'])))
+    {
+      $array = form_set_error('currentctcamtnumerror',t('Please enter the Current CTC Amount in numeric'));
+    }
+    if(trim($form_state['values']['expectedctcamt']) == "")
+    {
+      $array = form_set_error('expectedctcamterror',t('Please enter your Expected CTC value'));
+    }
+    if(!is_numeric(trim($form_state['values']['expectedctcamt'])))
+    {
+      $array = form_set_error('expectedctcamtnumerror',t('Please enter the Expected CTC Amount in Numeric'));
+    }
+}
+
+
+/* * **
+ * CREATE BLOCK
+ */
+
+/**
+ * Implements hook_block_info().
+ * @return array $blocks
+ */
+function capgemini_formulaire_block_info() {
+    $blocks['capgemini_formulaire_block'] = array(
+      'info' => t('Capgemini custom block'),
+    );
+    return $blocks;
+} 
+
+
+/**
+ * Implements hook_block_view().
+ * @return array $blocks
+ */
+function capgemini_formulaire_block_view($delta = '') {
+    // The $delta parameter tells us which block is being requested.
+    switch ($delta) {
+        case 'capgemini_block':
+            // Create your block content here
+            $block['subject'] = t('My last 3 Articles');
+            
+            $query = new EntityFieldQuery();
+            //change news by the name of your content type
+            $entities = $query->entityCondition('entity_type', 'node')
+              ->entityCondition('bundle', 'Article') // Article: content type
+              ->propertyOrderBy("created", "DESC")
+              ->range(0, 3)
+              ->execute();
+
+            $block['content'] = '';
+
+            foreach ($entities['node'] as $obj) {
+                $node = node_load($obj->nid);
+                $block['content'] .= l($node->title, "node/" . $node->nid) . ' - ' . date('d-m-Y', $node->created) . '<br>';   //l = href
+            }
+
+            break;
+    }
+    return $block;
+} 

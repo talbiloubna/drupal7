@@ -1,0 +1,80 @@
+<?php
+
+/**
+ * Implements hook_update_N().
+ */
+function capgemini_import_update_7101() {
+    $schema['capgemini_import_log'] = array(
+      'description' => 'import log',
+      'fields' => array(
+        'id' => array(
+          'type' => 'serial',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'description' => 'The primary identifier for an import log, used internally only.',
+        ),
+        'context' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'description' => "The context",
+        ),
+        'users_imported' => array(
+          'type' => 'int',
+          'length' => 32,
+          'not null' => TRUE,
+          'description' => "The number of imported users",
+        ),
+        'users_not_imported' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+          'description' => "The number of imported users",
+        ),
+        'users_updated' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+          'description' => "The number of updated users",
+        ),
+        'date_creation' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+          'description' => "The Unix timestamp when the logs are created",
+        ),
+        'date_import' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+          'description' => "The Unix timestamp when the logs are imported",
+        ),
+      ),
+      'primary key' => array('id'),
+    );
+
+    db_create_table('capgemini_import_log', $schema['capgemini_import_log']);
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function capgemini_import_update_7102() {
+    $file_uri = array(
+      'description' => 'The URI to access the file log',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+    );
+    $user_not_updated = array(
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+      'description' => "The number of not updated users",
+    );
+    
+    db_add_field('capgemini_import_log', 'uri', $file_uri);
+    db_add_field('capgemini_import_log', 'user_not_updated', $user_not_updated);
+    db_drop_field('capgemini_import_log', 'date_creation');
+} 

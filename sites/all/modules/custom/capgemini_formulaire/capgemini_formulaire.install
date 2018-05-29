@@ -1,0 +1,82 @@
+<?php
+
+
+
+// $Id$
+/**
+* @file
+* Module for managing links of social networking sites.
+*/
+
+/**
+ * Implements hook_schema().
+ */
+function capgemini_formulaire_table_schema() {
+    $schema = array();
+
+    $schema['capgemini_formulaire_test'] = array(
+      'description' => 'Saves information about each capgemini multistep form.',
+      'fields' => array(
+        'opinion_id' => array(
+          'description' => 'The primary identifier for an opinion, used internally only.',
+          'type' => 'serial',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'lastname' => array(
+          'description' => 'The lastname',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+        ),
+        'firstname' => array(
+          'description' => 'The firstname',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+        ),
+        'email' => array(
+          'description' => 'The email',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+        ),
+        'room_rate' => array(
+          'description' => 'The room opinion',
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'service_rate' => array(
+          'description' => 'The service opinion',
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'opinion' => array(
+          'description' => 'The log entry explaining the opinion.',
+          'type' => 'text',
+          'not null' => TRUE,
+          'size' => 'big',
+        ),
+        'created' => array(
+          'description' => 'The Unix timestamp when the opinion was created.',
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+      ),
+      'primary key' => array('opinion_id'),
+    );
+
+    return $schema;
+} 
+
+
+	/**
+	* Implementation of hook_uninstall().
+	*/
+	function capgemini_formulaire_uninstall() {
+	// Remove tables.
+		drupal_uninstall_schema('capgemini_formulaire');
+	}

@@ -1,0 +1,33 @@
+<?php
+
+function csvImporter_schema() {
+    $schema = array();
+
+    $schema['csvImporter'] = array(
+      'description' => 'csv Import.',
+      'fields' => array(
+        'id' => array(
+          'description' => 'The primary identifier for an opinion, used internally only.',
+          'type' => 'serial',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'lastname' => array(
+          'description' => 'The lastname',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+        ),
+        'firstname' => array(
+          'description' => 'The firstname',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+        ),
+        
+      ),
+      'primary key' => array('id'),
+    );
+
+    return $schema;
+} 

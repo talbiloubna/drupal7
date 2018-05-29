@@ -1,0 +1,72 @@
+<?php
+
+module_load_include('inc', 'generateur_faux_contenus', 'inc/generateur_faux_contenus.submit');
+module_load_include('inc', 'generateur_faux_contenus', 'inc/generateur_faux_contenus.form');
+module_load_include('inc', 'generateur_faux_contenus', 'inc/generateur_faux_contenus.validate');
+module_load_include('inc', 'generateur_faux_contenus', 'inc/generateur_faux_contenus.admin');
+/**
+ * Implements hook_menu().
+ *
+ * @return array $items
+ */
+function generateur_faux_contenus_menu() {
+  $items = [];
+
+  $items['admin/config/development/generateut/faux_contenus'] = [//this creates a URL that will call this form at "admin/config/development/generateut/faux_contenus"
+    'title' => 'Generateur faux contenus',
+    //page title
+    'description' => 'A form to generate false content.',
+    'page callback' => 'drupal_get_form',
+    //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+    'page arguments' => ['generateur_faux_contenus_form'],
+    "access arguments" => ["administer content"],
+  ];
+
+  $items['admin/config/development/generateur/settings'] = [//this creates a URL that will call this form at "admin/config/development/generateut/faux_contenus"
+    'title' => 'Generateur Contenus Settings',
+    'description' => 'A form to manage generate false content.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['generateur_faux_contenus_setting'],
+    "access arguments" => ["administer content"],
+  ];
+
+  $items['admin/config/development/generateur/addNode'] = [//this creates a URL that will call this form at "admin/config/development/generateut/faux_contenus"
+    'title' => 'Generateur Contenus Node',
+    'description' => 'A form to manage generate false content.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['generateur_faux_contenus_nodes_form'],
+    "access arguments" => ["administer content"],
+  ];
+
+  return $items;
+}
+
+
+/**
+ *callback ajaxs
+ *
+ * @param $form
+ * @param $form_state
+ *
+ * @return array
+ */
+function generateur_faux_contenus_ajax_callback($form, &$form_state) {
+  ctools_include('ajax');
+  if ($form_state['values']['entity'] == 'Node') {
+    $output = drupal_render(drupal_get_form('generateur_faux_contenus_node_form'));
+  }
+  if ($form_state['values']['entity'] == 'User') {
+    $output = drupal_render(drupal_get_form('generateur_faux_contenus_user_form'));
+  }
+  if ($form_state['values']['entity'] == 'Taxonomie') {
+    $output = drupal_render(drupal_get_form('generateur_faux_contenus_taxonomy_form'));
+  }
+  $commands[] = ajax_command_html('#ajax-example-form-node', $output);
+  return ['#type' => 'ajax', '#commands' => $commands];
+
+}
+
+
+
+
+

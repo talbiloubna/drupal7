@@ -1,0 +1,6 @@
+name = CSV Importer Sample
+description = Sample CSV Importer Module
+core = 7.x
+package = Capgemini
+version = "7.x-1.0"
+project = "csvImporter"

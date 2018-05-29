@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the last article feature.
+ */
+
+include_once 'last_article.features.inc';

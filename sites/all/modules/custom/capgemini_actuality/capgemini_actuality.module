@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Capgemini actuality feature.
+ */
+
+include_once 'capgemini_actuality.features.inc';

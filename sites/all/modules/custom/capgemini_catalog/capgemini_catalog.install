@@ -1,0 +1,113 @@
+<?php
+
+/**
+ * Implements hook_update_N().
+ */
+function capgemini_catalog_update_7102() {
+  $schema['capgemini_import_products_log'] = array(
+    'description' => 'import log',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The primary identifier for an import log, used internally only.',
+      ),
+      'context' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "The context",
+      ),
+      'products_imported' => array(
+        'type' => 'int',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "The number of imported products",
+      ),
+      'products_not_imported' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "The number of non imported products",
+      ),
+      'products_updated' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "The number of updated products",
+      ),
+      'products_not_updated' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "The number of non updated products",
+      ),
+      'uri' => array(
+        'description' => 'The URI to access the file log',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'date_import' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "The Unix timestamp when the logs are imported",
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  db_create_table('capgemini_import_products_log', $schema['capgemini_import_products_log']);
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function capgemini_catalog_uninstall() {
+  // content type :
+  $type = 'produits';
+
+  // select all node for our content types
+  $results = db_select('node', 'n')
+    ->fields('n', array('nid'))
+    ->condition('type', $type)
+    ->execute();
+
+  foreach ($results as $result) {
+    $nids[] = $result->nid;
+  }
+
+  if (!empty($nids)) {
+    node_delete_multiple($nids);
+    drupal_set_message(t('%count nodes has been deleted.', array('%count' => count($nids))));
+  }
+
+  // Delete content types
+  if (node_type_load($type)) {
+    node_type_delete($type);
+    variable_del('node_preview_' . $type);
+    drupal_set_message(t('%type content type has been deleted.', array('%type' => $type)));
+  }
+
+  //delete log table capgemini_import_products_log
+  db_query('DROP TABLE {capgemini_import_products_log}');
+
+  //delete view
+  $view_name = 'list_products';
+  if ($view = views_get_view($view_name)) {
+    views_delete_view($view);
+  }
+  
+  //delete block
+  capgemini_catalog_delete_block('capgemini_catalog_block');
+ 
+
+  node_types_rebuild();
+  menu_rebuild();
+  
+}
